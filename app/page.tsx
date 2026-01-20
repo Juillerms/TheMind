@@ -18,8 +18,8 @@ export default function Home() {
     try {
       await createRoom();
       router.push('/lobby');
-    } catch (err) {
-      setError('Erro ao criar sala. Tente novamente.');
+    } catch (err: any) {
+      setError(err?.message || 'Erro ao criar sala. Tente novamente.');
       console.error(err);
     } finally {
       setLoading(false);

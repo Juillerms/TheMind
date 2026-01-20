@@ -1,3 +1,19 @@
+# The Mind — Jogo Cooperativo Online
+
+## Deploy (Netlify) — correção para “não cria sala”
+
+Este projeto usa **Ably Realtime** para presença/mensagens. Em produção, a API Key **não deve** ficar no browser. O app usa Token Auth via endpoint `GET /api/ably`.
+
+### Variáveis de ambiente
+
+- **ABLY_API_KEY**: sua API Key do Ably (formato `xxxx:yyyy`)
+
+Configure em Netlify: *Site settings → Environment variables*.
+
+### Observação
+
+Se `ABLY_API_KEY` não estiver configurada, a criação/entrada em salas falhará.
+
 # The Mind - Jogo Online
 
 Versão online do jogo de cartas cooperativo The Mind, desenvolvido com Next.js e sincronização em tempo real via Ably.

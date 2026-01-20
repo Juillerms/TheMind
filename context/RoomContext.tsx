@@ -46,10 +46,14 @@ const generateRoomCode = (): string => {
 
 // Inicializa Ably (usando chave pública temporária - em produção, use variável de ambiente)
 const getAblyClient = (): Ably.Realtime => {
-  // Para desenvolvimento, usando chave de demonstração
-  // IMPORTANTE: Em produção, crie uma conta gratuita na Ably e use NEXT_PUBLIC_ABLY_API_KEY
-  const apiKey = process.env.NEXT_PUBLIC_ABLY_API_KEY || 'demo:demo';
-  return new Ably.Realtime({ key: apiKey, clientId: `client-${Math.random().toString(36).substr(2, 9)}` });
+  const clientId = `client-${Math.random().toString(36).slice(2, 11)}`;
+
+  // Em produção (Netlify), usamos Token Auth via endpoint server-side para não expor a API Key no browser.
+  // Em dev, também funciona desde que ABLY_API_KEY esteja configurada no ambiente.
+  return new Ably.Realtime({
+    clientId,
+    authUrl: `/api/ably?clientId=${encodeURIComponent(clientId)}`,
+  });
 };
 
 export const RoomProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -74,57 +78,62 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const createRoom = useCallback(async () => {
     if (!ablyClient) return;
 
-    const roomCode = generateRoomCode();
-    const hostId = `player-${Math.random().toString(36).substr(2, 9)}`;
-    const hostPlayer: Player = {
-      id: hostId,
-      name: 'Jogador 1',
-      index: 0,
-    };
+    try {
+      const roomCode = generateRoomCode();
+      const hostId = `player-${Math.random().toString(36).slice(2, 11)}`;
+      const hostPlayer: Player = {
+        id: hostId,
+        name: 'Jogador 1',
+        index: 0,
+      };
 
-    const channel = ablyClient.channels.get(`room:${roomCode}`);
+      const channel = ablyClient.channels.get(`room:${roomCode}`);
 
-    // Entrar na presença como host
-    await channel.presence.enter(hostPlayer);
+      // Entrar na presença como host
+      await channel.presence.enter(hostPlayer);
 
-    // Subscrever para mensagens da sala
-    await channel.subscribe('room:update', (message) => {
-      setRoomState(message.data);
-    });
+      // Subscrever para mensagens da sala
+      await channel.subscribe('room:update', (message) => {
+        setRoomState(message.data);
+      });
 
-    await channel.subscribe('game:start', () => {
-      router.push('/game');
-    });
+      await channel.subscribe('game:start', () => {
+        router.push('/game');
+      });
 
-    // Subscrever para atualizações de presença
-    await channel.presence.subscribe('enter', async () => {
-      // Quando alguém entra, atualizar a lista de jogadores
-      const presence = await channel.presence.get();
-      const allPlayers = presence.map((m) => m.data as Player).filter(Boolean);
-      
-      const updatedState: RoomState = {
+      // Subscrever para atualizações de presença
+      await channel.presence.subscribe('enter', async () => {
+        // Quando alguém entra, atualizar a lista de jogadores
+        const presence = await channel.presence.get();
+        const allPlayers = presence.map((m) => m.data as Player).filter(Boolean);
+
+        const updatedState: RoomState = {
+          roomCode,
+          players: allPlayers,
+          hostId,
+          gameStarted: false,
+        };
+
+        await channel.publish('room:update', updatedState);
+      });
+
+      // Inicializar sala
+      const newRoomState: RoomState = {
         roomCode,
-        players: allPlayers,
+        players: [hostPlayer],
         hostId,
         gameStarted: false,
       };
-      
-      await channel.publish('room:update', updatedState);
-    });
 
-    // Inicializar sala
-    const newRoomState: RoomState = {
-      roomCode,
-      players: [hostPlayer],
-      hostId,
-      gameStarted: false,
-    };
+      await channel.publish('room:update', newRoomState);
 
-    await channel.publish('room:update', newRoomState);
-
-    setRoomState(newRoomState);
-    setCurrentPlayer(hostPlayer);
-    setAblyChannel(channel);
+      setRoomState(newRoomState);
+      setCurrentPlayer(hostPlayer);
+      setAblyChannel(channel);
+    } catch (error: any) {
+      console.error('Erro ao criar sala:', error);
+      throw new Error(error?.message || 'Falha ao criar sala no Ably.');
+    }
   }, [ablyClient, router]);
 
   const joinRoom = useCallback(async (code: string): Promise<boolean> => {
