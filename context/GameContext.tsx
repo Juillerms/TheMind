@@ -176,87 +176,52 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const playCard = useCallback((playerIndex: number, cardIndex: number) => {
-    setGameState((prev) => {
-      if (!prev || prev.gameOver || prev.gameWon || prev.levelComplete) return prev;
+  if (!gameState || gameState.gameOver || gameState.gameWon || gameState.levelComplete) return;
 
-      const hand = [...prev.playerHands[playerIndex]];
-      const card = hand[cardIndex];
+  // 1. Calcular o novo estado (Crie uma função auxiliar ou faça o cálculo fora do setGameState)
+  const hand = [...gameState.playerHands[playerIndex]];
+  const card = hand[cardIndex];
+  const isCorrectOrder = gameState.playedCards.length === 0 || card > gameState.playedCards[gameState.playedCards.length - 1];
 
-      // Verificar se a carta está na ordem correta
-      const isCorrectOrder = prev.playedCards.length === 0 || card > prev.playedCards[prev.playedCards.length - 1];
+  let newState: GameState;
 
-      if (isCorrectOrder) {
-        // Carta correta: adiciona às cartas jogadas
-        const newHand = hand.filter((_, i) => i !== cardIndex);
-        const newHands = [...prev.playerHands];
-        newHands[playerIndex] = newHand;
+  if (isCorrectOrder) {
+    const newHands = [...gameState.playerHands];
+    newHands[playerIndex] = hand.filter((_, i) => i !== cardIndex);
+    const totalCards = newHands.reduce((sum, h) => sum + h.length, 0);
+    const levelComplete = totalCards === 0;
 
-        // Verificar se o nível está completo
-        const totalCardsInHands = newHands.reduce((sum, h) => sum + h.length, 0);
-        const levelComplete = totalCardsInHands === 0;
+    newState = {
+      ...gameState,
+      playedCards: [...gameState.playedCards, card],
+      playerHands: newHands,
+      levelComplete,
+      gameWon: levelComplete && gameState.currentLevel >= getMaxLevels(gameState.numPlayers),
+    };
+  } else {
+    const newLives = gameState.lives - 1;
+    const newHands = gameState.playerHands.map((h, idx) => 
+      idx === playerIndex ? h.filter((_, i) => i !== cardIndex) : h.filter(c => c >= card)
+    );
+    const totalCards = newHands.reduce((sum, h) => sum + h.length, 0);
 
-        // Verificar se ganhou o jogo
-        const maxLevels = getMaxLevels(prev.numPlayers);
-        const gameWon = levelComplete && prev.currentLevel >= maxLevels;
+    newState = {
+      ...gameState,
+      lives: newLives,
+      playerHands: newHands,
+      gameOver: newLives === 0,
+      levelComplete: totalCards === 0,
+    };
+  }
 
-        // Ganhar estrela ninja em certos níveis (níveis 3, 6, 9)
-        let newStars = prev.stars;
-        if (levelComplete && prev.currentLevel % 3 === 0) {
-          newStars += 1;
-        }
-
-        const newState = {
-          ...prev,
-          playedCards: [...prev.playedCards, card],
-          playerHands: newHands,
-          levelComplete,
-          gameWon,
-          stars: newStars,
-        };
-        syncGameState(newState);
-        return newState;
-      } else {
-        // Carta errada: perder vida e descartar cartas menores
-        const newLives = prev.lives - 1;
-        const gameOver = newLives === 0;
-
-        // Descartar todas as cartas menores que a jogada (incluindo a jogada)
-        const remainingCards = prev.playedCards.filter(c => c >= card);
-        // A carta jogada incorretamente não é adicionada às cartas jogadas
-
-        // Remover a carta jogada da mão do jogador e todas as cartas menores das mãos de todos os jogadores
-        const newHands = prev.playerHands.map((hand, idx) => {
-          if (idx === playerIndex) {
-            // Remove a carta jogada incorretamente da mão do jogador
-            return hand.filter((_, i) => i !== cardIndex);
-          } else {
-            // Remove cartas menores que a carta jogada incorretamente
-            return hand.filter(c => c >= card);
-          }
-        });
-
-        // Verificar se o nível está completo após o erro
-        const totalCardsInHands = newHands.reduce((sum, h) => sum + h.length, 0);
-        const levelComplete = totalCardsInHands === 0;
-
-        // Verificar se ganhou o jogo (mesmo após erro)
-        const maxLevels = getMaxLevels(prev.numPlayers);
-        const gameWon = levelComplete && prev.currentLevel >= maxLevels;
-
-        const newState = {
-          ...prev,
-          lives: newLives,
-          playedCards: remainingCards,
-          playerHands: newHands,
-          gameOver,
-          levelComplete,
-          gameWon,
-        };
-        syncGameState(newState);
-        return newState;
-      }
-    });
-  }, [syncGameState]);
+  // 2. DISPARAR PARA O ABLY (Fora do setter de estado)
+  if (ablyChannel) {
+    ablyChannel.publish('game:state', newState);
+  }
+  
+  // 3. ATUALIZAR LOCALMENTE
+  setGameState(newState);
+}, [gameState, ablyChannel]);
 
   const useStar = useCallback(() => {
     setGameState((prev) => {
