@@ -18,29 +18,25 @@ export default function LobbyPage() {
   }, [roomState, router]);
 
   useEffect(() => {
-    if (!ablyClient || !roomState?.roomCode || !currentPlayer) return;
+  if (!ablyClient || !roomState?.roomCode || !currentPlayer) return;
 
-    // Subscrever para quando o jogo começar (apenas não-hosts)
-    const gameChannel = ablyClient.channels.get(`game:${roomState.roomCode}`);
-    
-    const handleGameState = (message: any) => {
-      // Quando recebe estado do jogo, configurar o GameContext e navegar
-      if (message.data) {
-        // Configurar o canal no GameContext usando o canal do jogo
-        initializeGame(roomState.players.length, gameChannel, roomState.roomCode);
-        // Navegar para o jogo
-        setTimeout(() => {
-          router.push('/game');
-        }, 100);
-      }
-    };
+  const gameChannel = ablyClient.channels.get(`game:${roomState.roomCode}`);
+  
+  // 1. Crie uma função nomeada em vez de anônima
+  const handleGameState = (message: any) => {
+    if (message.data) {
+      initializeGame(roomState.players.length, gameChannel, roomState.roomCode);
+      setTimeout(() => router.push('/game'), 100);
+    }
+  };
 
-    gameChannel.subscribe('game:state', handleGameState);
+  gameChannel.subscribe('game:state', handleGameState);
 
-    return () => {
-      gameChannel.unsubscribe('game:state');
-    };
-  }, [ablyClient, roomState, router, currentPlayer, initializeGame]);
+  return () => {
+    // 2. Passe a função aqui para remover APENAS ela
+    gameChannel.unsubscribe('game:state', handleGameState); 
+  };
+}, [ablyClient, roomState, router, currentPlayer, initializeGame]);
 
   const handleStartGame = async () => {
     if (!roomState || roomState.players.length < 2 || !ablyClient) return;

@@ -92,18 +92,20 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Sincronizar estado do jogo via Ably
   useEffect(() => {
-    if (!ablyChannel || !roomCode) return;
+  if (!ablyChannel || !roomCode) return;
 
-    // ablyChannel já é o canal do jogo
-    // Subscrever para atualizações do estado do jogo
-    ablyChannel.subscribe('game:state', (message) => {
-      setGameState(message.data);
-    });
+  // Crie a função separada
+  const onGameStateUpdate = (message: any) => {
+    setGameState(message.data);
+  };
 
-    return () => {
-      ablyChannel.unsubscribe('game:state');
-    };
-  }, [ablyChannel, roomCode]);
+  ablyChannel.subscribe('game:state', onGameStateUpdate);
+
+  return () => {
+    // Remova apenas esta função
+    ablyChannel.unsubscribe('game:state', onGameStateUpdate);
+  };
+}, [ablyChannel, roomCode]);
 
   const setAblyChannel = useCallback((channel: Ably.RealtimeChannel | null, code?: string) => {
     setAblyChannelState(channel);
@@ -176,52 +178,45 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const playCard = useCallback((playerIndex: number, cardIndex: number) => {
-  if (!gameState || gameState.gameOver || gameState.gameWon || gameState.levelComplete) return;
+  // Use 'setGameState' com a função de callback (prev) para ter o estado mais atualizado
+  setGameState((prev) => {
+    if (!prev || prev.gameOver || prev.levelComplete) return prev;
 
-  // 1. Calcular o novo estado (Crie uma função auxiliar ou faça o cálculo fora do setGameState)
-  const hand = [...gameState.playerHands[playerIndex]];
-  const card = hand[cardIndex];
-  const isCorrectOrder = gameState.playedCards.length === 0 || card > gameState.playedCards[gameState.playedCards.length - 1];
+    const hand = [...prev.playerHands[playerIndex]];
+    const card = hand[cardIndex];
+    const isCorrect = prev.playedCards.length === 0 || card > prev.playedCards[prev.playedCards.length - 1];
 
-  let newState: GameState;
+    let newState;
+    if (isCorrect) {
+      const newHands = [...prev.playerHands];
+      newHands[playerIndex] = hand.filter((_, i) => i !== cardIndex);
+      const isDone = newHands.reduce((s, h) => s + h.length, 0) === 0;
 
-  if (isCorrectOrder) {
-    const newHands = [...gameState.playerHands];
-    newHands[playerIndex] = hand.filter((_, i) => i !== cardIndex);
-    const totalCards = newHands.reduce((sum, h) => sum + h.length, 0);
-    const levelComplete = totalCards === 0;
+      newState = {
+        ...prev,
+        playedCards: [...prev.playedCards, card],
+        playerHands: newHands,
+        levelComplete: isDone,
+        gameWon: isDone && prev.currentLevel >= getMaxLevels(prev.numPlayers)
+      };
+    } else {
+      const newLives = prev.lives - 1;
+      newState = {
+        ...prev,
+        lives: newLives,
+        gameOver: newLives === 0
+        // ... lógica de descarte de erro
+      };
+    }
 
-    newState = {
-      ...gameState,
-      playedCards: [...gameState.playedCards, card],
-      playerHands: newHands,
-      levelComplete,
-      gameWon: levelComplete && gameState.currentLevel >= getMaxLevels(gameState.numPlayers),
-    };
-  } else {
-    const newLives = gameState.lives - 1;
-    const newHands = gameState.playerHands.map((h, idx) => 
-      idx === playerIndex ? h.filter((_, i) => i !== cardIndex) : h.filter(c => c >= card)
-    );
-    const totalCards = newHands.reduce((sum, h) => sum + h.length, 0);
+    // DISPARA PARA O ABLY AQUI (fora do return)
+    if (ablyChannel) {
+      ablyChannel.publish('game:state', newState);
+    }
 
-    newState = {
-      ...gameState,
-      lives: newLives,
-      playerHands: newHands,
-      gameOver: newLives === 0,
-      levelComplete: totalCards === 0,
-    };
-  }
-
-  // 2. DISPARAR PARA O ABLY (Fora do setter de estado)
-  if (ablyChannel) {
-    ablyChannel.publish('game:state', newState);
-  }
-  
-  // 3. ATUALIZAR LOCALMENTE
-  setGameState(newState);
-}, [gameState, ablyChannel]);
+    return newState;
+  });
+}, [ablyChannel]);
 
   const useStar = useCallback(() => {
     setGameState((prev) => {
