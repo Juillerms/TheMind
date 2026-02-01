@@ -45,13 +45,20 @@ const shuffle = <T,>(array: T[]): T[] => {
   return shuffled;
 };
 
-// Função para gerar deck completo (1 a 100)
-const generateDeck = (): number[] => {
-  return Array.from({ length: 100 }, (_, i) => i + 1);
+// Tamanho do deck: 2–8 jogadores = 100 cartas; 9–10 jogadores = 150 cartas
+const getDeckSize = (numPlayers: number): number => {
+  return numPlayers >= 9 ? 150 : 100;
+};
+
+// Função para gerar deck (1 a 100 ou 1 a 150 conforme número de jogadores)
+const generateDeck = (numPlayers: number): number[] => {
+  const size = getDeckSize(numPlayers);
+  return Array.from({ length: size }, (_, i) => i + 1);
 };
 
 // Calcular número máximo de níveis baseado no número de jogadores
-const getMaxLevels = (numPlayers: number): number => {
+// 2–8 jogadores: mesmo suporte atual. 9–10 jogadores: modo 150 cartas, menos níveis.
+export const getMaxLevels = (numPlayers: number): number => {
   if (numPlayers === 2) return 12;
   if (numPlayers === 3) return 10;
   if (numPlayers === 4) return 8;
@@ -59,6 +66,8 @@ const getMaxLevels = (numPlayers: number): number => {
   if (numPlayers === 6) return 6;
   if (numPlayers === 7) return 5;
   if (numPlayers === 8) return 4;
+  if (numPlayers === 9) return 8;
+  if (numPlayers === 10) return 6;
   return 12;
 };
 
@@ -135,7 +144,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setTimeout(() => {
         const maxLevels = getMaxLevels(numPlayers);
         const initialLives = getInitialLives(numPlayers);
-        const deck = generateDeck();
+        const deck = generateDeck(numPlayers);
         const hands = dealCards(numPlayers, 1, deck);
 
         const initialState: GameState = {
@@ -158,7 +167,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Modo offline/single player
       const maxLevels = getMaxLevels(numPlayers);
       const initialLives = getInitialLives(numPlayers);
-      const deck = generateDeck();
+      const deck = generateDeck(numPlayers);
       const hands = dealCards(numPlayers, 1, deck);
 
       const initialState: GameState = {
@@ -254,7 +263,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       const newLevel = prev.currentLevel + 1;
-      const deck = generateDeck();
+      const deck = generateDeck(prev.numPlayers);
       const hands = dealCards(prev.numPlayers, newLevel, deck);
 
       const newState = {

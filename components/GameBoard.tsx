@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Card from './Card';
 import PlayerHand from './PlayerHand';
-import { useGame } from '@/context/GameContext';
+import { useGame, getMaxLevels } from '@/context/GameContext';
 import { useRoom } from '@/context/RoomContext';
 import { useRouter } from 'next/navigation';
 
@@ -52,14 +52,7 @@ export default function GameBoard() {
             The Mind
           </h1>
           <p style={{ color: '#666', marginTop: '5px' }}>
-            Nível {gameState.currentLevel} de{' '}
-            {gameState.numPlayers === 2 ? 12 :
-             gameState.numPlayers === 3 ? 10 :
-             gameState.numPlayers === 4 ? 8 :
-             gameState.numPlayers === 5 ? 7 :
-             gameState.numPlayers === 6 ? 6 :
-             gameState.numPlayers === 7 ? 5 :
-             gameState.numPlayers === 8 ? 4 : 12}
+            Nível {gameState.currentLevel} de {getMaxLevels(gameState.numPlayers)}
           </p>
         </div>
         <div className="game-stats">
@@ -112,23 +105,11 @@ export default function GameBoard() {
             <div className="game-status" style={{ background: '#d4edda', border: '2px solid #27ae60' }}>
               <h2 style={{ color: '#27ae60' }}>Nível Completo! ✅</h2>
               <p>
-                {gameState.currentLevel >= (gameState.numPlayers === 2 ? 12 :
-                  gameState.numPlayers === 3 ? 10 :
-                  gameState.numPlayers === 4 ? 8 :
-                  gameState.numPlayers === 5 ? 7 :
-                  gameState.numPlayers === 6 ? 6 :
-                  gameState.numPlayers === 7 ? 5 :
-                  gameState.numPlayers === 8 ? 4 : 12)
+                {gameState.currentLevel >= getMaxLevels(gameState.numPlayers)
                   ? 'Parabéns! Vocês venceram o jogo!'
                   : 'Vamos para o próximo nível!'}
               </p>
-              {gameState.currentLevel < (gameState.numPlayers === 2 ? 12 :
-                gameState.numPlayers === 3 ? 10 :
-                gameState.numPlayers === 4 ? 8 :
-                gameState.numPlayers === 5 ? 7 :
-                gameState.numPlayers === 6 ? 6 :
-                gameState.numPlayers === 7 ? 5 :
-                gameState.numPlayers === 8 ? 4 : 12) && isHost && (
+              {gameState.currentLevel < getMaxLevels(gameState.numPlayers) && isHost && (
                 <button className="next-level-button action-button" onClick={nextLevel}>
                   Próximo Nível
                 </button>

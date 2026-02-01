@@ -85,7 +85,7 @@ export default function LobbyPage() {
           </div>
 
           <div className="players-list">
-            <h2>Jogadores ({roomState.players.length}/8)</h2>
+            <h2>Jogadores ({roomState.players.length}/10)</h2>
             <div className="players-grid">
               {roomState.players.map((player, index) => (
                 <div 

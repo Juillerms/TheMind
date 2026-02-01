@@ -21,8 +21,8 @@ interface RoomContextType {
   roomState: RoomState | null;
   currentPlayer: Player | null;
   isHost: boolean;
-  createRoom: () => Promise<void>;
-  joinRoom: (code: string) => Promise<boolean>;
+  createRoom: (nickname: string) => Promise<void>;
+  joinRoom: (code: string, nickname: string) => Promise<boolean>;
   leaveRoom: () => void;
   startGame: () => void;
   ablyChannel: Ably.RealtimeChannel | null;
@@ -75,15 +75,17 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
-  const createRoom = useCallback(async () => {
+  const createRoom = useCallback(async (nickname: string) => {
     if (!ablyClient) return;
+
+    const displayName = (nickname || 'Jogador 1').trim() || 'Jogador 1';
 
     try {
       const roomCode = generateRoomCode();
       const hostId = `player-${Math.random().toString(36).slice(2, 11)}`;
       const hostPlayer: Player = {
         id: hostId,
-        name: 'Jogador 1',
+        name: displayName,
         index: 0,
       };
 
@@ -136,7 +138,7 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [ablyClient, router]);
 
-  const joinRoom = useCallback(async (code: string): Promise<boolean> => {
+  const joinRoom = useCallback(async (code: string, nickname: string): Promise<boolean> => {
     if (!ablyClient) return false;
 
     try {
@@ -155,14 +157,15 @@ export const RoomProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const presence = await channel.presence.get();
       const existingPlayers = presence.map((m) => m.data as Player).filter(Boolean);
       
-      if (existingPlayers.length >= 8) {
+      if (existingPlayers.length >= 10) {
         return false; // Sala cheia
       }
 
+      const displayName = (nickname || `Jogador ${existingPlayers.length + 1}`).trim() || `Jogador ${existingPlayers.length + 1}`;
       const playerId = `player-${Math.random().toString(36).substr(2, 9)}`;
       const newPlayer: Player = {
         id: playerId,
-        name: `Jogador ${existingPlayers.length + 1}`,
+        name: displayName,
         index: existingPlayers.length,
       };
 

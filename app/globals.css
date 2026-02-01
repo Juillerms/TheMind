@@ -392,7 +392,8 @@ body {
   background: #f0f0ff;
 }
 
-.join-room-form {
+.join-room-form,
+.nickname-form {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -400,6 +401,25 @@ body {
   padding: 20px;
   background: #f8f9fa;
   border-radius: 8px;
+  text-align: left;
+}
+
+.nickname-form label {
+  font-weight: 600;
+  color: #333;
+  margin-top: 12px;
+}
+
+.nickname-form label:first-of-type {
+  margin-top: 0;
+}
+
+.form-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 20px;
+  flex-wrap: wrap;
 }
 
 .room-code-input {
